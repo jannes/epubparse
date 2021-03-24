@@ -1,0 +1,5 @@
+[workspace]
+members = ["epubparse-rs", "epubparse-wasm"]
+[profile.release.package.epubparse-wasm]
+# Tell `rustc` to optimize for small code size.
+opt-level = "s"
