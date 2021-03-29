@@ -7,6 +7,7 @@ license = "MIT"
 description = "Parse epub and convert to text-only Book structure"
 readme = "README.md"
 repository = "https://github.com/jannes/epubparse/"
+keywords = ["epub", "ebook"]
 exclude = [
     "test_resources/*",
 ]

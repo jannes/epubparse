@@ -1,5 +1,7 @@
 # Epubparse-rs
 
+WORK IN PROGRESS: absolutely not usable at the current moment
+
 This library aims to convert Epub files into text-only Book structures
 that can be used to do analysis of the contained text.
 
