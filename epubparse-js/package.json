@@ -1,0 +1,26 @@
+{
+  "name": "epubparse-js",
+  "version": "0.1.1",
+  "description": "WIP library for parsing epub files into book structures",
+  "module": "index.js",
+  "scripts": {
+    "build": "tsc",
+    "prepublish": "npm run build",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Jannes",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jannes/epubparse/"
+  },
+  "files": [
+    "dist/"
+  ],
+  "devDependencies": {
+    "typescript": "^4.2.3"
+  },
+  "dependencies": {
+    "epubparse-wasm": "^0.1.0"
+  }
+}
