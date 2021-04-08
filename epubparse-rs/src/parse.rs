@@ -9,7 +9,10 @@ use regex::Regex;
 use xmltree::Element;
 use zip::ZipArchive;
 
-use crate::{errors::{MalformattedEpubError, ParseError}, types::{Book, Chapter}};
+use crate::{
+    errors::{MalformattedEpubError, ParseError},
+    types::{Book, Chapter, Section},
+};
 
 struct ZipArchiveWrapper<R: Read + Seek>(ZipArchive<R>);
 
@@ -129,11 +132,11 @@ impl<R: Read + Seek> EpubArchive<R> {
             .into_iter()
             .map(|fname| Chapter {
                 title: fname,
-                content: "".to_string(),
+                content: vec![Section::Chunk("".to_string())],
             })
             .collect();
         Book {
-            title: "".to_string(),
+            title: self.content_opf.title.clone(),
             author: "".to_string(),
             chapters,
         }
@@ -283,5 +286,22 @@ mod tests {
         assert_eq!("en", &content_opf.language);
         assert!(!content_opf.manifest.is_empty());
         assert!(!content_opf.spine.is_empty());
+    }
+
+    #[test]
+    fn epub_to_flat_ncx() {
+        let epub_bytes = fs::read("test_resources/paid_off.epub").unwrap();
+        let epub_archive = EpubArchive::<Cursor<&[u8]>>::from_bytes(&epub_bytes).unwrap();
+        let toc_ncx = epub_archive.navigation;
+        assert_eq!(1, toc_ncx.depth);
+        assert_eq!(14, toc_ncx.nav_points.len());
+        assert_eq!(
+            (1..15).collect::<Vec<usize>>(),
+            toc_ncx
+                .nav_points
+                .iter()
+                .map(|np| np.play_order.unwrap())
+                .collect::<Vec<usize>>()
+        );
     }
 }

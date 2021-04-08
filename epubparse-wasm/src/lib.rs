@@ -3,9 +3,7 @@ mod utils;
 extern crate web_sys;
 extern crate epubparse;
 
-use std::io::Cursor;
-
-use epubparse::parse::EpubArchive;
+use epubparse::epub_to_book;
 use js_sys::Array;
 use wasm_bindgen::prelude::*;
 
@@ -49,9 +47,9 @@ pub fn greet() {
 
 #[wasm_bindgen]
 pub fn parse_epub(bytes: &[u8]) -> String {
-    let epub_archive = EpubArchive::<Cursor<&[u8]>>::from_bytes(bytes);
-    match epub_archive {
-        Ok(ea) => ea.get_title().to_string(),
+    let book = epub_to_book(bytes);
+    match book {
+        Ok(book) => book.title,
         Err(e) => {
             log!("err");
             e.to_string()

@@ -2,6 +2,8 @@ use std::{io, string};
 
 use thiserror::Error;
 
+/// The top-level Error type that captures all failure scenarios
+/// of the epub -> book conversion
 #[derive(Error, Debug)]
 pub enum ParseError {
     #[error("File error")]
@@ -14,6 +16,7 @@ pub enum ParseError {
     EpubError(#[from] MalformattedEpubError),
 }
 
+/// Failure scenarios for malformatted epub file that is a valid zip file
 #[derive(Error, Debug)]
 pub enum MalformattedEpubError {
     #[error("Malformatted/missing container.xml file")]
