@@ -8,18 +8,11 @@ pub struct Book {
 /// A chapter within a book
 ///
 /// A chapter has a title and content  
-/// The content is made up of sections
+/// The content is sequentially made up of 
+///     1. text (may be empty)
+///     2. a sequence of subchapters (may be zero)
 pub struct Chapter {
     pub title: String,
-    pub content: Vec<Section>,
-}
-
-/// A section within a chapter
-///
-/// A section in a chapter is either
-/// - a chunk of text that belongs to the current chapter
-/// - a subchapter 
-pub enum Section {
-    Chunk(String),
-    SubChapter(Chapter),
+    pub text: String,
+    pub subchapters: Vec<Chapter>,
 }

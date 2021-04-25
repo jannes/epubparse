@@ -11,7 +11,7 @@ use zip::ZipArchive;
 
 use crate::{
     errors::{MalformattedEpubError, ParseError},
-    types::{Book, Chapter, Section},
+    types::{Book, Chapter},
 };
 
 struct ZipArchiveWrapper<R: Read + Seek>(ZipArchive<R>);
@@ -35,12 +35,21 @@ pub struct ContentOPF {
     pub spine: Spine,
 }
 
+#[derive(PartialEq, Eq, Hash)]
 pub struct NavPoint {
     pub id: String,
+    pub label: Option<String>,
     pub play_order: Option<usize>,
     pub level: usize,
     pub src: String,
     pub children: Vec<NavPoint>,
+}
+
+struct FlattenedChapter {
+    pub title: String,
+    pub text: String,
+    pub level: u64,
+    pub resource_id: ItemId,
 }
 
 pub struct TocNcx {
@@ -50,8 +59,25 @@ pub struct TocNcx {
     pub nav_points: Vec<NavPoint>,
 }
 
-pub struct EpubArchive<R: Read + Seek> {
-    zip: ZipArchiveWrapper<R>,
+impl TocNcx {
+    pub fn get_flattened_nav_points(&self) -> Vec<&NavPoint> {
+        let mut result = Vec::new();
+        for nav_point in &self.nav_points {
+            self.add_dfs(nav_point, &mut result);
+        }
+        result
+    }
+
+    fn add_dfs<'a>(&self, nav_point: &'a NavPoint, result: &mut Vec<&'a NavPoint>) {
+        result.push(nav_point);
+        for child in &nav_point.children {
+            self.add_dfs(child, result);
+        }
+    }
+}
+
+pub struct EpubArchive<'a> {
+    zip: ZipArchiveWrapper<Cursor<&'a [u8]>>,
     filenames: Vec<String>,
     pub content_opf_dir: PathBuf,
     pub content_opf: ContentOPF,
@@ -75,11 +101,12 @@ impl<R: Read + Seek> ZipArchiveWrapper<R> {
     }
 }
 
-impl<R: Read + Seek> EpubArchive<R> {
-    pub fn new(zip_reader: R) -> Result<Self, ParseError> {
-        let mut zip = ZipArchiveWrapper(zip::ZipArchive::new(zip_reader)?);
+impl<'a> EpubArchive<'a> {
+    pub fn new(bytes: &'a [u8]) -> Result<Self, ParseError> {
+        let mut zip = ZipArchiveWrapper(zip::ZipArchive::new(Cursor::new(bytes))?);
         let filenames = zip.get_filenames();
         let container_text = zip.get_file_content("META-INF/container.xml")?;
+        // TODO: make this more robust
         let content_opf_re = Regex::new(r#"rootfile full-path="(\S*)""#).unwrap();
 
         let content_opf_path = match content_opf_re.captures(&container_text) {
@@ -120,21 +147,9 @@ impl<R: Read + Seek> EpubArchive<R> {
         })
     }
 
-    pub fn from_bytes(bytes: &[u8]) -> Result<EpubArchive<Cursor<&[u8]>>, ParseError> {
-        let cursor = Cursor::new(bytes);
-        EpubArchive::new(cursor)
-    }
-
+    // TODO: implement correctly
     pub fn to_book(&self) -> Book {
-        let chapters: Vec<Chapter> = self
-            .zip
-            .get_filenames()
-            .into_iter()
-            .map(|fname| Chapter {
-                title: fname,
-                content: vec![Section::Chunk("".to_string())],
-            })
-            .collect();
+        let chapters = self.item_refs_to_chapters();
         Book {
             title: self.content_opf.title.clone(),
             author: "".to_string(),
@@ -144,6 +159,56 @@ impl<R: Read + Seek> EpubArchive<R> {
 
     pub fn get_title(&self) -> &str {
         &self.content_opf.title
+    }
+
+    /// find all nav points that have a source that matches the given item's href
+    fn get_matching_navpoints(
+        &self,
+        item_id: &ItemId,
+        nav_points: &'a [NavPoint],
+    ) -> Vec<&'a NavPoint> {
+        let mut result = Vec::new();
+        if let Some(item_href) = self
+            .content_opf
+            .manifest
+            .get(item_id)
+            .map(|manifest_item| &manifest_item.href)
+        {
+            for nav_point in nav_points {
+                // nav_point src may have anchor suffix
+                if nav_point.src.contains(item_href) {
+                    result.push(nav_point);
+                }
+                result.append(&mut self.get_matching_navpoints(item_id, &nav_point.children));
+            }
+        }
+        result
+    }
+
+    fn item_refs_to_chapters(&self) -> Vec<Chapter> {
+        let flattened_navpoints = self.navigation.get_flattened_nav_points();
+        // nav_point -> [src_path1 ... src_pathn], where src pathes can have anchors ("path#anchor")
+        let mut nav_point_sources_map: HashMap<&NavPoint, Vec<&str>> = flattened_navpoints
+            .iter()
+            .map(|np| (*np, Vec::new()))
+            .collect();
+        let mut preface_sources: Vec<&str> = Vec::new();
+
+        for item_id in &self.content_opf.spine {
+            let matching_nav_points =
+                self.get_matching_navpoints(item_id, &self.navigation.nav_points);
+            if matching_nav_points.is_empty() {
+                preface_sources.push(item_id);
+            }
+            for matching_nav_point in matching_nav_points {
+                nav_point_sources_map
+                    .get_mut(matching_nav_point)
+                    .unwrap()
+                    .push(item_id);
+            }
+        }
+
+        unimplemented!()
     }
 }
 
@@ -163,9 +228,15 @@ pub fn parse_nav_points(nav_points: &Element, level: usize) -> Option<Vec<NavPoi
             let id = el.attributes.get("id")?.to_string();
             let play_order: Option<usize> = el.attributes.get("playOrder")?.parse().ok();
             let src = el.get_child("content")?.attributes.get("src")?.to_string();
+            let label = el
+                .get_child("navLabel")
+                .and_then(|el| el.get_child("text"))
+                .and_then(|el| el.get_text())
+                .map(|s| s.to_string());
             let children = parse_nav_points(el, level + 1)?;
             Some(NavPoint {
                 id,
+                label,
                 play_order,
                 level,
                 src,
@@ -270,6 +341,43 @@ pub fn parse_content_opf(text: &str) -> Option<ContentOPF> {
     })
 }
 
+pub fn convert_archive_to_book(epub_archive: &EpubArchive) -> Result<Book, ParseError> {
+    let title = epub_archive.content_opf.title.clone();
+    let author = epub_archive
+        .content_opf
+        .author
+        .as_ref()
+        .unwrap_or(&"".to_string())
+        .to_string();
+    let spine = &epub_archive.content_opf.spine;
+    let mut unconnected_chapters: Vec<Chapter> = Vec::new();
+    let mut index = 0;
+    for item_id in spine {
+        let item = epub_archive
+            .content_opf
+            .manifest
+            .get(item_id)
+            .ok_or(ParseError::EpubError(
+                MalformattedEpubError::MalformattedManifest,
+            ))?;
+    }
+    let chapters: Vec<Chapter> = epub_archive
+        .navigation
+        .nav_points
+        .iter()
+        .map(|np| nav_point_to_chapter(np, epub_archive))
+        .collect();
+    Ok(Book {
+        title,
+        author,
+        chapters,
+    })
+}
+
+pub fn nav_point_to_chapter(nav_point: &NavPoint, archive: &EpubArchive) -> Chapter {
+    unimplemented!()
+}
+
 #[cfg(test)]
 mod tests {
     use std::fs;
@@ -279,7 +387,7 @@ mod tests {
     #[test]
     fn epub_to_contentopf() {
         let epub_bytes = fs::read("test_resources/paid_off.epub").unwrap();
-        let epub_archive = EpubArchive::<Cursor<&[u8]>>::from_bytes(&epub_bytes).unwrap();
+        let epub_archive = EpubArchive::new(&epub_bytes).unwrap();
         let content_opf = epub_archive.content_opf;
         assert_eq!("Paid Off", &content_opf.title);
         assert_eq!("Walter J. Coburn", &content_opf.author.unwrap());
@@ -291,7 +399,7 @@ mod tests {
     #[test]
     fn epub_to_flat_ncx() {
         let epub_bytes = fs::read("test_resources/paid_off.epub").unwrap();
-        let epub_archive = EpubArchive::<Cursor<&[u8]>>::from_bytes(&epub_bytes).unwrap();
+        let epub_archive = EpubArchive::new(&epub_bytes).unwrap();
         let toc_ncx = epub_archive.navigation;
         assert_eq!(1, toc_ncx.depth);
         assert_eq!(14, toc_ncx.nav_points.len());
@@ -302,6 +410,18 @@ mod tests {
                 .iter()
                 .map(|np| np.play_order.unwrap())
                 .collect::<Vec<usize>>()
+        );
+    }
+
+    #[test]
+    fn epub_to_nested_ncx() {
+        let epub_bytes = fs::read("test_resources/shakespeares.epub").unwrap();
+        let epub_archive = EpubArchive::new(&epub_bytes).unwrap();
+        let toc_ncx = epub_archive.navigation;
+        assert_eq!(3, toc_ncx.depth);
+        assert_eq!(
+            "ACT I",
+            toc_ncx.nav_points[3].children[3].label.as_ref().unwrap()
         );
     }
 }
