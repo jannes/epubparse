@@ -19,6 +19,7 @@ use types::Book;
 pub mod errors;
 mod parse;
 pub mod types;
+mod util;
 
 /// Parse an epub file to a text-only book structure (UNIMPLEMENTED!)
 ///
@@ -33,7 +34,7 @@ mod tests {
     use std::fs;
 
     #[test]
-    fn epub_to_contentopf() {
+    fn epub_to_book_paid_off() {
         let bytes = fs::read("test_resources/paid_off.epub").unwrap();
         let book = epub_to_book(&bytes).unwrap();
         assert_eq!("Paid Off", &book.title);

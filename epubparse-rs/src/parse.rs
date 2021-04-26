@@ -92,6 +92,14 @@ impl<R: Read + Seek> ZipArchiveWrapper<R> {
         Ok(buffer)
     }
 
+    fn get_html_file_content(&mut self, full_uri: &str, stop_anchor: Option<&str>) -> Result<String, ParseError> {
+        let uri_split = full_uri.split("#").collect::<Vec<&str>>();
+        let filepath = *uri_split.get(0).unwrap();
+        let start_anchor = uri_split.get(1);
+        let file_content = self.get_file_content(filepath)?;
+        unimplemented!()
+    }
+
     fn get_filenames(&self) -> Vec<String> {
         self.0
             .file_names()
