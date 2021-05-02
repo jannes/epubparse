@@ -25,7 +25,7 @@ mod util;
 ///
 /// This may fail due to various reasons, that are captured by the returned Result's Error type
 pub fn epub_to_book(bytes: &[u8]) -> Result<Book, ParseError> {
-    EpubArchive::new(bytes).map(|archive| archive.to_book())
+    EpubArchive::new(bytes).and_then(|archive| archive.to_book())
 }
 
 #[cfg(test)]

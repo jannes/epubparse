@@ -1,20 +1,20 @@
-use std::{
-    collections::HashMap,
-    io::{self, Read, Seek},
-    path::PathBuf,
-};
+use std::io::Read;
+use std::{collections::HashMap, io, path::PathBuf};
 
 use io::Cursor;
 use regex::Regex;
 use xmltree::Element;
-use zip::ZipArchive;
+use zip::{result::ZipError, ZipArchive};
 
 use crate::{
     errors::{MalformattedEpubError, ParseError},
     types::{Book, Chapter},
+    util,
 };
 
-struct ZipArchiveWrapper<R: Read + Seek>(ZipArchive<R>);
+struct ZipArchiveWrapper<'a> {
+    zip_archive: ZipArchive<Cursor<&'a [u8]>>,
+}
 
 pub struct ManifestItem {
     id: String,
@@ -77,31 +77,28 @@ impl TocNcx {
 }
 
 pub struct EpubArchive<'a> {
-    zip: ZipArchiveWrapper<Cursor<&'a [u8]>>,
-    filenames: Vec<String>,
+    zip: ZipArchiveWrapper<'a>,
+    manifest_html_files: HashMap<String, String>,
     pub content_opf_dir: PathBuf,
     pub content_opf: ContentOPF,
     pub navigation: TocNcx,
 }
 
-impl<R: Read + Seek> ZipArchiveWrapper<R> {
-    fn get_file_content(&mut self, filepath: &str) -> Result<String, ParseError> {
-        let mut file = self.0.by_name(filepath)?;
+impl<'a> ZipArchiveWrapper<'a> {
+    fn new(reader: Cursor<&'a [u8]>) -> Result<Self, ZipError> {
+        let zip_archive = ZipArchive::new(reader)?;
+        Ok(ZipArchiveWrapper { zip_archive })
+    }
+
+    fn get_file_content(&mut self, filepath: &str) -> Result<String, ZipError> {
+        let mut file = self.zip_archive.by_name(filepath)?;
         let mut buffer = String::new();
         file.read_to_string(&mut buffer)?;
         Ok(buffer)
     }
 
-    fn get_html_file_content(&mut self, full_uri: &str, stop_anchor: Option<&str>) -> Result<String, ParseError> {
-        let uri_split = full_uri.split("#").collect::<Vec<&str>>();
-        let filepath = *uri_split.get(0).unwrap();
-        let start_anchor = uri_split.get(1);
-        let file_content = self.get_file_content(filepath)?;
-        unimplemented!()
-    }
-
     fn get_filenames(&self) -> Vec<String> {
-        self.0
+        self.zip_archive
             .file_names()
             .into_iter()
             .map(|s| s.to_string())
@@ -111,8 +108,7 @@ impl<R: Read + Seek> ZipArchiveWrapper<R> {
 
 impl<'a> EpubArchive<'a> {
     pub fn new(bytes: &'a [u8]) -> Result<Self, ParseError> {
-        let mut zip = ZipArchiveWrapper(zip::ZipArchive::new(Cursor::new(bytes))?);
-        let filenames = zip.get_filenames();
+        let mut zip = ZipArchiveWrapper::new(Cursor::new(bytes))?;
         let container_text = zip.get_file_content("META-INF/container.xml")?;
         // TODO: make this more robust
         let content_opf_re = Regex::new(r#"rootfile full-path="(\S*)""#).unwrap();
@@ -143,26 +139,44 @@ impl<'a> EpubArchive<'a> {
         );
         // TODO: check if this would always work
         let ncx_path = nxc_path.into_os_string().into_string().unwrap();
-        println!("ncx path: {}", &ncx_path);
+        // println!("ncx path: {}", &ncx_path);
         let ncx_text = zip.get_file_content(&ncx_path)?;
         let navigation = parse_ncx(&ncx_text).ok_or(MalformattedEpubError::MalformattedTocNcx)?;
+
+        // construct map filename -> content for all html files declared in manifest
+        let manifest_html_files: HashMap<String, String> = content_opf
+            .manifest
+            .values()
+            .filter_map(|manifest_item| {
+                if manifest_item.media_type == "application/xhtml+xml" {
+                    Some(manifest_item.href.to_string())
+                } else {
+                    None
+                }
+            })
+            .map(|filepath| {
+                zip.get_file_content(&filepath)
+                    .map(|content| (filepath, content))
+            })
+            .collect::<Result<HashMap<_, _>, ZipError>>()?;
+
         Ok(EpubArchive {
             zip,
-            filenames,
+            manifest_html_files,
             content_opf_dir,
             content_opf,
             navigation,
         })
     }
 
-    // TODO: implement correctly
-    pub fn to_book(&self) -> Book {
-        let chapters = self.item_refs_to_chapters();
-        Book {
+    pub fn to_book(&self) -> Result<Book, ParseError> {
+        let (preface_content, chapters) = self.item_refs_to_chapters()?;
+        Ok(Book {
             title: self.content_opf.title.clone(),
-            author: "".to_string(),
+            author: self.content_opf.author.clone(),
+            preface_content,
             chapters,
-        }
+        })
     }
 
     pub fn get_title(&self) -> &str {
@@ -170,57 +184,166 @@ impl<'a> EpubArchive<'a> {
     }
 
     /// find all nav points that have a source that matches the given item's href
+    /// returns matches in same order as they appear in given list
     fn get_matching_navpoints(
         &self,
-        item_id: &ItemId,
+        item_href: &str,
         nav_points: &'a [NavPoint],
     ) -> Vec<&'a NavPoint> {
         let mut result = Vec::new();
-        if let Some(item_href) = self
-            .content_opf
-            .manifest
-            .get(item_id)
-            .map(|manifest_item| &manifest_item.href)
-        {
-            for nav_point in nav_points {
-                // nav_point src may have anchor suffix
-                if nav_point.src.contains(item_href) {
-                    result.push(nav_point);
-                }
-                result.append(&mut self.get_matching_navpoints(item_id, &nav_point.children));
+        for nav_point in nav_points {
+            // nav_point src may have anchor suffix
+            if nav_point.src.contains(item_href) {
+                result.push(nav_point);
             }
+            result.append(&mut self.get_matching_navpoints(item_href, &nav_point.children));
         }
         result
     }
 
-    fn item_refs_to_chapters(&self) -> Vec<Chapter> {
+    // TODO: make sure this method can not be called with zero nav_points
+    fn item_refs_to_chapters(&self) -> Result<(String, Vec<Chapter>), ParseError> {
+        // 1. construct list of navpoints in order they are visited by reader
+        // 2. walk through spine and add resource contents to right nav_point
+        // 3. convert nested navpoint structure to nested chapter structure
+
         let flattened_navpoints = self.navigation.get_flattened_nav_points();
-        // nav_point -> [src_path1 ... src_pathn], where src pathes can have anchors ("path#anchor")
-        let mut nav_point_sources_map: HashMap<&NavPoint, Vec<&str>> = flattened_navpoints
+        // nav_point -> [src_path1 ... src_pathn], where src_path1 mave have start anchor ("path#anchor")
+        let nav_point_sources_map: HashMap<&NavPoint, Vec<&str>> = flattened_navpoints
+            .iter()
+            .map(|np| (*np, vec![np.src.as_str()]))
+            .collect();
+        // nav_point -> top level text content (not including nested nav_points' contents)
+        let mut nav_point_content_map: HashMap<&NavPoint, Vec<String>> = flattened_navpoints
             .iter()
             .map(|np| (*np, Vec::new()))
             .collect();
-        let mut preface_sources: Vec<&str> = Vec::new();
 
+        // ordered sources that occur before first nav_point
+        let mut preface_sources: Vec<&str> = Vec::new();
+        let mut preface_content: Vec<String> = Vec::new();
+        let mut passed_preface = false;
+        // ordered (source, nav_point) pairs
+        //   where source is path with potential anchor
+        let mut ordered_sources_navpoints: Vec<(&str, &NavPoint)> =
+            Vec::with_capacity(self.content_opf.spine.len());
+
+        let mut last_matched_nav_point = *flattened_navpoints.first().unwrap();
         for item_id in &self.content_opf.spine {
+            // convert id to href
+            let item_href = self
+                .content_opf
+                .manifest
+                .get(item_id)
+                .map(|manifest_item| &manifest_item.href)
+                .ok_or(ParseError::EpubError(
+                    MalformattedEpubError::MalformattedContentOpf,
+                ))?;
             let matching_nav_points =
                 self.get_matching_navpoints(item_id, &self.navigation.nav_points);
+            // if no matches
             if matching_nav_points.is_empty() {
-                preface_sources.push(item_id);
-            }
-            for matching_nav_point in matching_nav_points {
-                nav_point_sources_map
-                    .get_mut(matching_nav_point)
-                    .unwrap()
-                    .push(item_id);
+                // if beyond preface, should match previous nav_point
+                // else, matches preface
+                if passed_preface {
+                    ordered_sources_navpoints.push((item_href, last_matched_nav_point));
+                } else {
+                    preface_sources.push(item_href);
+                }
+            } else {
+                passed_preface = true;
+                // if some matches,
+                // append matched nav_points' sources in order
+                for matching_nav_point in matching_nav_points {
+                    let first_src_of_np = *nav_point_sources_map
+                        .get(matching_nav_point)
+                        .unwrap()
+                        .first()
+                        .unwrap();
+                    ordered_sources_navpoints.push((first_src_of_np, matching_nav_point));
+                    last_matched_nav_point = matching_nav_point;
+                }
             }
         }
 
-        unimplemented!()
+        // fill in contents for nav_points
+        for i in 0..ordered_sources_navpoints.len() {
+            let (src_path, nav_point) = ordered_sources_navpoints.get(i).unwrap();
+            let next_src_path = ordered_sources_navpoints.get(i + 1).map(|(s, _np)| *s);
+            let content_chunk = self.src_to_text(src_path, next_src_path)?;
+            nav_point_content_map
+                .get_mut(nav_point)
+                .unwrap()
+                .push(content_chunk);
+        }
+        // fill in content for preface
+        for i in 0..preface_sources.len() {
+            let src_path = preface_sources.get(i).unwrap();
+            let next_src_path = if i == preface_sources.len() - 1 {
+                preface_sources.last().copied()
+            } else {
+                ordered_sources_navpoints.first().map(|tpl_ref| tpl_ref.0)
+            };
+            let content_chunk = self.src_to_text(src_path, next_src_path)?;
+            preface_content.push(content_chunk);
+        }
+
+        let chapters: Vec<Chapter> = self
+            .navigation
+            .nav_points
+            .iter()
+            .map(|np| convert_np_to_chapter(np, &nav_point_content_map))
+            .collect();
+        Ok((preface_content.join("\n"), chapters))
+    }
+
+    // get text starting at src (path with potential anchor)
+    // end of text is
+    // a. end of file given by src (if next_src is different file)
+    // b. before anchor in next_src (if next_src is same file)
+    fn src_to_text(&self, src: &str, next_src: Option<&str>) -> Result<String, ParseError> {
+        let mut src_split = src.split('#');
+        let src_file = src_split.next().unwrap();
+        let src_anchor = src_split.next();
+        let full_text = self.manifest_html_files.get(src_file).ok_or(MalformattedEpubError::MalformattedTocNcx)?;
+        let stop_anchor = if next_src.map(|s| s.starts_with(src_file)) == Some(true) {
+            let mut next_src_split = next_src.unwrap().split('#');
+            let _next_src_file = next_src_split.next();
+            next_src_split.next()
+        } else {
+            None
+        };
+        util::html_to_text(full_text.as_str(), src_anchor, stop_anchor).map_err(|err| {
+            ParseError::EpubError(MalformattedEpubError::MalformattedHTML(
+                src_file.to_string(),
+                err,
+            ))
+        })
     }
 }
 
-pub fn parse_nav_points(nav_points: &Element, level: usize) -> Option<Vec<NavPoint>> {
+// given nav_point must be present in content map
+fn convert_np_to_chapter(
+    nav_point: &NavPoint,
+    contents: &HashMap<&NavPoint, Vec<String>>,
+) -> Chapter {
+    let subchapters: Vec<Chapter> = nav_point
+        .children
+        .iter()
+        .map(|child| convert_np_to_chapter(child, contents))
+        .collect();
+    let text = contents
+        .get(nav_point)
+        .expect("NavPoint should have been present in content map")
+        .join("\n");
+    Chapter {
+        title: nav_point.label.clone().unwrap_or_else(|| "".to_string()),
+        text,
+        subchapters,
+    }
+}
+
+fn parse_nav_points(nav_points: &Element, level: usize) -> Option<Vec<NavPoint>> {
     nav_points
         .children
         .iter()
@@ -254,7 +377,7 @@ pub fn parse_nav_points(nav_points: &Element, level: usize) -> Option<Vec<NavPoi
         .collect::<Option<Vec<_>>>()
 }
 
-pub fn parse_ncx(text: &str) -> Option<TocNcx> {
+fn parse_ncx(text: &str) -> Option<TocNcx> {
     let ncx = xmltree::Element::parse(text.as_bytes()).ok()?;
     let depths: Vec<usize> = ncx
         .get_child("head")?
@@ -282,7 +405,7 @@ pub fn parse_ncx(text: &str) -> Option<TocNcx> {
     Some(TocNcx { depth, nav_points })
 }
 
-pub fn parse_manifest(manifest: &Element) -> Option<Manifest> {
+fn parse_manifest(manifest: &Element) -> Option<Manifest> {
     Some(
         manifest
             .children
@@ -326,7 +449,7 @@ pub fn parse_spine(spine: &Element) -> Option<Spine> {
     )
 }
 
-pub fn parse_content_opf(text: &str) -> Option<ContentOPF> {
+fn parse_content_opf(text: &str) -> Option<ContentOPF> {
     let package = xmltree::Element::parse(text.as_bytes()).ok()?;
     let metadata = package.get_child("metadata")?;
     let manifest = package.get_child("manifest")?;
@@ -347,43 +470,6 @@ pub fn parse_content_opf(text: &str) -> Option<ContentOPF> {
         manifest,
         spine,
     })
-}
-
-pub fn convert_archive_to_book(epub_archive: &EpubArchive) -> Result<Book, ParseError> {
-    let title = epub_archive.content_opf.title.clone();
-    let author = epub_archive
-        .content_opf
-        .author
-        .as_ref()
-        .unwrap_or(&"".to_string())
-        .to_string();
-    let spine = &epub_archive.content_opf.spine;
-    let mut unconnected_chapters: Vec<Chapter> = Vec::new();
-    let mut index = 0;
-    for item_id in spine {
-        let item = epub_archive
-            .content_opf
-            .manifest
-            .get(item_id)
-            .ok_or(ParseError::EpubError(
-                MalformattedEpubError::MalformattedManifest,
-            ))?;
-    }
-    let chapters: Vec<Chapter> = epub_archive
-        .navigation
-        .nav_points
-        .iter()
-        .map(|np| nav_point_to_chapter(np, epub_archive))
-        .collect();
-    Ok(Book {
-        title,
-        author,
-        chapters,
-    })
-}
-
-pub fn nav_point_to_chapter(nav_point: &NavPoint, archive: &EpubArchive) -> Chapter {
-    unimplemented!()
 }
 
 #[cfg(test)]

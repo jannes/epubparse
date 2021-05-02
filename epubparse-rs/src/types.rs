@@ -1,7 +1,8 @@
 /// A text-only book
 pub struct Book {
     pub title: String,
-    pub author: String,
+    pub author: Option<String>,
+    pub preface_content: String,
     pub chapters: Vec<Chapter>,
 }
 
