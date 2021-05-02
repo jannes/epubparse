@@ -23,8 +23,8 @@ pub enum MalformattedEpubError {
     MalformattedContainer,
     #[error("Malformatted content.opf file")]
     MalformattedContentOpf,
-    #[error("Malformatted toc.ncx file")]
-    MalformattedTocNcx,
+    #[error("Malformatted toc.ncx file, err: `{0}`")]
+    MalformattedTocNcx(String),
     #[error("Malformatted manifest or missing resources")]
     MalformattedManifest,
     #[error("Could not process HTML resource, file: `{0}`, error: `{1}`")]

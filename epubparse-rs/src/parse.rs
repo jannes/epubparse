@@ -141,9 +141,10 @@ impl<'a> EpubArchive<'a> {
         let ncx_path = nxc_path.into_os_string().into_string().unwrap();
         // println!("ncx path: {}", &ncx_path);
         let ncx_text = zip.get_file_content(&ncx_path)?;
-        let navigation = parse_ncx(&ncx_text).ok_or(MalformattedEpubError::MalformattedTocNcx)?;
+        let navigation = parse_ncx(&ncx_text)?;
 
         // construct map filename -> content for all html files declared in manifest
+        // let manifest_html_files: HashMap<String, String> = HashMap::new();
         let manifest_html_files: HashMap<String, String> = content_opf
             .manifest
             .values()
@@ -155,7 +156,10 @@ impl<'a> EpubArchive<'a> {
                 }
             })
             .map(|filepath| {
-                zip.get_file_content(&filepath)
+                let mut full_path = content_opf_dir.clone();
+                full_path.push(filepath.clone());
+                let full_path = full_path.into_os_string().into_string().unwrap();
+                zip.get_file_content(&full_path)
                     .map(|content| (filepath, content))
             })
             .collect::<Result<HashMap<_, _>, ZipError>>()?;
@@ -305,7 +309,12 @@ impl<'a> EpubArchive<'a> {
         let mut src_split = src.split('#');
         let src_file = src_split.next().unwrap();
         let src_anchor = src_split.next();
-        let full_text = self.manifest_html_files.get(src_file).ok_or(MalformattedEpubError::MalformattedTocNcx)?;
+        let full_text = self.manifest_html_files.get(src_file).ok_or_else(|| {
+            MalformattedEpubError::MalformattedTocNcx(format!(
+                "File {} in TOC, but not in Manifest",
+                src_file
+            ))
+        })?;
         let stop_anchor = if next_src.map(|s| s.starts_with(src_file)) == Some(true) {
             let mut next_src_split = next_src.unwrap().split('#');
             let _next_src_file = next_src_split.next();
@@ -357,7 +366,7 @@ fn parse_nav_points(nav_points: &Element, level: usize) -> Option<Vec<NavPoint>>
         })
         .map(|el| {
             let id = el.attributes.get("id")?.to_string();
-            let play_order: Option<usize> = el.attributes.get("playOrder")?.parse().ok();
+            let play_order: Option<usize> = el.attributes.get("playOrder").and_then(|po| po.parse().ok());
             let src = el.get_child("content")?.attributes.get("src")?.to_string();
             let label = el
                 .get_child("navLabel")
@@ -377,10 +386,12 @@ fn parse_nav_points(nav_points: &Element, level: usize) -> Option<Vec<NavPoint>>
         .collect::<Option<Vec<_>>>()
 }
 
-fn parse_ncx(text: &str) -> Option<TocNcx> {
-    let ncx = xmltree::Element::parse(text.as_bytes()).ok()?;
+fn parse_ncx(text: &str) -> Result<TocNcx, MalformattedEpubError> {
+    let ncx = xmltree::Element::parse(text.as_bytes())
+        .map_err(|_e| MalformattedEpubError::MalformattedTocNcx("Invalid XML".to_string()))?;
     let depths: Vec<usize> = ncx
-        .get_child("head")?
+        .get_child("head")
+        .ok_or_else(|| MalformattedEpubError::MalformattedTocNcx("Missing head".to_string()))?
         .children
         .iter()
         .filter_map(|node| {
@@ -396,13 +407,19 @@ fn parse_ncx(text: &str) -> Option<TocNcx> {
         })
         .collect();
     let depth = if depths.len() != 1 {
-        return None;
+        return Err(MalformattedEpubError::MalformattedTocNcx(
+            "Depth info missing or duplicated".to_string(),
+        ));
     } else {
         *depths.get(0).unwrap()
     };
-    let nav_map = ncx.get_child("navMap")?;
-    let nav_points = parse_nav_points(nav_map, 1)?;
-    Some(TocNcx { depth, nav_points })
+    let nav_map = ncx
+        .get_child("navMap")
+        .ok_or_else(|| MalformattedEpubError::MalformattedTocNcx("Missing navMap".to_string()))?;
+    let nav_points = parse_nav_points(nav_map, 1).ok_or_else(|| {
+        MalformattedEpubError::MalformattedTocNcx("Could not parse NavPoints".to_string())
+    })?;
+    Ok(TocNcx { depth, nav_points })
 }
 
 fn parse_manifest(manifest: &Element) -> Option<Manifest> {
@@ -517,5 +534,23 @@ mod tests {
             "ACT I",
             toc_ncx.nav_points[3].children[3].label.as_ref().unwrap()
         );
+    }
+
+    #[test]
+    fn simple_epub_to_book() {
+        let epub_bytes = fs::read("test_resources/simple.epub").unwrap();
+        let epub_archive = EpubArchive::new(&epub_bytes).unwrap();
+        let author = "蒲松龄";
+        let title = "聊斋志异白话文";
+        let chapter2start = "我姐夫的祖父，名叫宋焘，是本县的廪生";
+        let book = epub_archive
+            .to_book()
+            .expect("simple.epub should be parsed to book without error");
+        assert_eq!(Some(author.to_string()), book.author);
+        assert_eq!(title, &book.title);
+        let chapter2 = book.chapters.get(1).expect("Book should contain chapters");
+        assert_eq!("卷一 考城隍", chapter2.title);
+        // assert_eq!("a", chapter2.text);
+        assert!(chapter2.text.starts_with(chapter2start));
     }
 }
