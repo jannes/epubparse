@@ -366,7 +366,10 @@ fn parse_nav_points(nav_points: &Element, level: usize) -> Option<Vec<NavPoint>>
         })
         .map(|el| {
             let id = el.attributes.get("id")?.to_string();
-            let play_order: Option<usize> = el.attributes.get("playOrder").and_then(|po| po.parse().ok());
+            let play_order: Option<usize> = el
+                .attributes
+                .get("playOrder")
+                .and_then(|po| po.parse().ok());
             let src = el.get_child("content")?.attributes.get("src")?.to_string();
             let label = el
                 .get_child("navLabel")
@@ -491,13 +494,12 @@ fn parse_content_opf(text: &str) -> Option<ContentOPF> {
 
 #[cfg(test)]
 mod tests {
-    use std::fs;
-
     use super::*;
 
     static EPUB_PAID_OFF: &[u8] = include_bytes!("../test_resources/paid_off.epub");
     static EPUB_SHAKESPEARES: &[u8] = include_bytes!("../test_resources/shakespeares.epub");
     static EPUB_SIMPLE: &[u8] = include_bytes!("../test_resources/simple.epub");
+    static EPUB_NESTED: &[u8] = include_bytes!("../test_resources/nested.epub");
 
     #[test]
     fn epub_to_contentopf() {
@@ -582,5 +584,83 @@ mod tests {
         assert!(chapter2.text.starts_with(expected_chapter2_start));
         assert!(chapter3.text.starts_with(expected_chapter3_start));
         assert!(chapter4.text.starts_with(expected_chapter4_start));
+    }
+
+    #[test]
+    fn nested_epub_to_book() {
+        let expected_author = "Jannes".to_string();
+        let expected_title = "Nested example".to_string();
+        let expected_chapters = vec![
+            Chapter {
+                title: "Nested example".to_string(),
+                text: "Nested example Nested example Jannes".to_string(),
+                subchapters: vec![],
+            },
+            Chapter {
+                title: "Chapter 1".to_string(),
+                text: "Chapter 1 This is Chapter 1".to_string(),
+                subchapters: vec![
+                    Chapter {
+                        title: "Chapter 1.1".to_string(),
+                        text: "Chapter 1.1 This is Chapter 1.1".to_string(),
+                        subchapters: vec![
+                            Chapter {
+                                title: "Chapter 1.1.1".to_string(),
+                                text: "Chapter 1.1.1 This is Chapter 1.1.1".to_string(),
+                                subchapters: vec![],
+                            },
+                            Chapter {
+                                title: "Chapter 1.1.2".to_string(),
+                                text: "Chapter 1.1.2 This is Chapter 1.1.2".to_string(),
+                                subchapters: vec![],
+                            },
+                        ],
+                    },
+                    Chapter {
+                        title: "Chapter 1.2".to_string(),
+                        text: "Chapter 1.2 This is Chapter 1.2".to_string(),
+                        subchapters: vec![],
+                    },
+                ],
+            },
+            Chapter {
+                title: "Chapter 2".to_string(),
+                text: "Chapter 2 This is Chapter 2".to_string(),
+                subchapters: vec![Chapter {
+                    title: "Chapter 2.1".to_string(),
+                    text: "Chapter 2.1".to_string(),
+                    subchapters: vec![Chapter {
+                        title: "Chapter 2.1.1".to_string(),
+                        text: "Chapter 2.1.1 This is Chapter 2.1.1".to_string(),
+                        subchapters: vec![],
+                    }],
+                }],
+            },
+            Chapter {
+                title: "Chapter 3".to_string(),
+                text: "Chapter 3".to_string(),
+                subchapters: vec![Chapter {
+                    title: "Chapter 3.1".to_string(),
+                    text: "Chapter 3.1".to_string(),
+                    subchapters: vec![Chapter {
+                        title: "Chapter 3.1.1".to_string(),
+                        text: "Chapter 3.1.1 This is Chapter 3.1.1".to_string(),
+                        subchapters: vec![],
+                    }],
+                }],
+            },
+        ];
+        let expected_book = Book {
+            title: expected_title,
+            author: Some(expected_author),
+            preface_content: "".to_string(),
+            chapters: expected_chapters,
+        };
+
+        let epub_archive = EpubArchive::new(EPUB_NESTED).unwrap();
+        let book = epub_archive
+            .to_book()
+            .expect("nested.epub should be parsed to book without error");
+        assert_eq!(expected_book, book);
     }
 }

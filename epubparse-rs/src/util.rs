@@ -27,8 +27,7 @@ pub fn html_to_text(
             xmltree::XMLNode::Element(element) => {
                 // if stop anchor encountered, stop
                 // println!("{}", element.name);
-                if let (Some(stop), Some(name_attr)) = (stop_anchor, get_named_anchor(element))
-                {
+                if let (Some(stop), Some(name_attr)) = (stop_anchor, get_named_anchor(element)) {
                     if stop == name_attr {
                         break;
                     }
@@ -79,7 +78,8 @@ pub fn get_named_anchor(element: &xmltree::Element) -> Option<&str> {
 mod tests {
     use super::*;
 
-    static PRIDE_PREJUDICE_CHAPTER_HTML: &str = include_str!("../test_resources/pride_prejudice_chapter.html");
+    static PRIDE_PREJUDICE_CHAPTER_HTML: &str =
+        include_str!("../test_resources/pride_prejudice_chapter.html");
     static SIMPLE_CHAPTER_HTML: &str = include_str!("../test_resources/simple_chapter.html");
 
     #[test]
@@ -108,7 +108,8 @@ mod tests {
 
     #[test]
     fn html_to_text_with_anchors_simple() {
-        let all_text = html_to_text(PRIDE_PREJUDICE_CHAPTER_HTML, Some("start"), Some("end")).unwrap();
+        let all_text =
+            html_to_text(PRIDE_PREJUDICE_CHAPTER_HTML, Some("start"), Some("end")).unwrap();
         assert!(all_text
             .starts_with("Mr. Bingley had soon made himself acquainted with all the principal people in the room;"));
         assert!(all_text.ends_with("and the Boulanger —”"));
@@ -125,8 +126,7 @@ mod tests {
     #[test]
     fn html_to_text_with_start_anchor_only_simple() {
         let all_text = html_to_text(SIMPLE_CHAPTER_HTML, Some("卷一-考城隍"), None).unwrap();
-        assert!(all_text
-            .starts_with("卷一 考城隍 我姐夫的祖父，名叫宋焘，是本县的廪生。"));
+        assert!(all_text.starts_with("卷一 考城隍 我姐夫的祖父，名叫宋焘，是本县的廪生。"));
         assert!(all_text.ends_with("这里的记载只是个大概而已。"));
     }
 

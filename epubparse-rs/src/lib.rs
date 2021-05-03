@@ -8,7 +8,7 @@
 //! - parse an epub file into a low-level epub structure,
 //!   that exposes all resources in an comprehensive API
 //!   (later versions)
-//! 
+//!
 //! For starters only epub versions 2.0.1 will be supported,  
 //! but I'm planning to also support 3.0.1/3.2
 

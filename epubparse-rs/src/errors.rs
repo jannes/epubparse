@@ -28,5 +28,5 @@ pub enum MalformattedEpubError {
     #[error("Malformatted manifest or missing resources")]
     MalformattedManifest,
     #[error("Could not process HTML resource, file: `{0}`, error: `{1}`")]
-    MalformattedHTML(String, xmltree::ParseError)
+    MalformattedHTML(String, xmltree::ParseError),
 }
