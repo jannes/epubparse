@@ -79,11 +79,12 @@ pub fn get_named_anchor(element: &xmltree::Element) -> Option<&str> {
 mod tests {
     use super::*;
 
-    static SIMPLE_HTML: &str = include_str!("../test_resources/pride_prejudice_chapter.html");
+    static PRIDE_PREJUDICE_CHAPTER_HTML: &str = include_str!("../test_resources/pride_prejudice_chapter.html");
+    static SIMPLE_CHAPTER_HTML: &str = include_str!("../test_resources/simple_chapter.html");
 
     #[test]
     fn get_all_text_simple() {
-        let root = xmltree::Element::parse(SIMPLE_HTML.as_bytes()).unwrap();
+        let root = xmltree::Element::parse(PRIDE_PREJUDICE_CHAPTER_HTML.as_bytes()).unwrap();
         let all_text = get_all_text(&xmltree::XMLNode::Element(root));
         // assert_eq!(all_text, "lala");
         assert!(all_text
@@ -95,7 +96,7 @@ mod tests {
 
     #[test]
     fn html_to_text_no_anchors() {
-        let all_text = html_to_text(SIMPLE_HTML, None, None).unwrap();
+        let all_text = html_to_text(PRIDE_PREJUDICE_CHAPTER_HTML, None, None).unwrap();
 
         // assert_eq!(all_text, "lala");
         assert!(all_text
@@ -107,23 +108,31 @@ mod tests {
 
     #[test]
     fn html_to_text_with_anchors_simple() {
-        let all_text = html_to_text(SIMPLE_HTML, Some("start"), Some("end")).unwrap();
+        let all_text = html_to_text(PRIDE_PREJUDICE_CHAPTER_HTML, Some("start"), Some("end")).unwrap();
         assert!(all_text
             .starts_with("Mr. Bingley had soon made himself acquainted with all the principal people in the room;"));
         assert!(all_text.ends_with("and the Boulanger —”"));
     }
 
     #[test]
-    fn html_to_text_with_start_anchor_only() {
-        let all_text = html_to_text(SIMPLE_HTML, Some("start"), None).unwrap();
+    fn html_to_text_with_start_anchor_only_pp() {
+        let all_text = html_to_text(PRIDE_PREJUDICE_CHAPTER_HTML, Some("start"), None).unwrap();
         assert!(all_text
             .starts_with("Mr. Bingley had soon made himself acquainted with all the principal people in the room;"));
         assert!(all_text.ends_with("I quite detest the man.”"));
     }
 
     #[test]
+    fn html_to_text_with_start_anchor_only_simple() {
+        let all_text = html_to_text(SIMPLE_CHAPTER_HTML, Some("卷一-考城隍"), None).unwrap();
+        assert!(all_text
+            .starts_with("卷一 考城隍 我姐夫的祖父，名叫宋焘，是本县的廪生。"));
+        assert!(all_text.ends_with("这里的记载只是个大概而已。"));
+    }
+
+    #[test]
     fn html_to_text_with_stop_anchor_only() {
-        let all_text = html_to_text(SIMPLE_HTML, None, Some("end")).unwrap();
+        let all_text = html_to_text(PRIDE_PREJUDICE_CHAPTER_HTML, None, Some("end")).unwrap();
         assert!(all_text
             .starts_with("The Project Gutenberg eBook of Pride and Prejudice, by Jane Austen"));
         assert!(all_text.ends_with("and the Boulanger —”"));
@@ -131,9 +140,9 @@ mod tests {
 
     #[test]
     fn html_to_text_get_all_text_equal() {
-        let root = xmltree::Element::parse(SIMPLE_HTML.as_bytes()).unwrap();
+        let root = xmltree::Element::parse(PRIDE_PREJUDICE_CHAPTER_HTML.as_bytes()).unwrap();
         let all_text1 = get_all_text(&xmltree::XMLNode::Element(root));
-        let all_text2 = html_to_text(SIMPLE_HTML, None, None).unwrap();
+        let all_text2 = html_to_text(PRIDE_PREJUDICE_CHAPTER_HTML, None, None).unwrap();
         assert_eq!(all_text1, all_text2);
     }
 }

@@ -244,7 +244,7 @@ impl<'a> EpubArchive<'a> {
                     MalformattedEpubError::MalformattedContentOpf,
                 ))?;
             let matching_nav_points =
-                self.get_matching_navpoints(item_id, &self.navigation.nav_points);
+                self.get_matching_navpoints(item_href, &self.navigation.nav_points);
             // if no matches
             if matching_nav_points.is_empty() {
                 // if beyond preface, should match previous nav_point
@@ -495,10 +495,13 @@ mod tests {
 
     use super::*;
 
+    static EPUB_PAID_OFF: &[u8] = include_bytes!("../test_resources/paid_off.epub");
+    static EPUB_SHAKESPEARES: &[u8] = include_bytes!("../test_resources/shakespeares.epub");
+    static EPUB_SIMPLE: &[u8] = include_bytes!("../test_resources/simple.epub");
+
     #[test]
     fn epub_to_contentopf() {
-        let epub_bytes = fs::read("test_resources/paid_off.epub").unwrap();
-        let epub_archive = EpubArchive::new(&epub_bytes).unwrap();
+        let epub_archive = EpubArchive::new(EPUB_PAID_OFF).unwrap();
         let content_opf = epub_archive.content_opf;
         assert_eq!("Paid Off", &content_opf.title);
         assert_eq!("Walter J. Coburn", &content_opf.author.unwrap());
@@ -509,8 +512,7 @@ mod tests {
 
     #[test]
     fn epub_to_flat_ncx() {
-        let epub_bytes = fs::read("test_resources/paid_off.epub").unwrap();
-        let epub_archive = EpubArchive::new(&epub_bytes).unwrap();
+        let epub_archive = EpubArchive::new(EPUB_PAID_OFF).unwrap();
         let toc_ncx = epub_archive.navigation;
         assert_eq!(1, toc_ncx.depth);
         assert_eq!(14, toc_ncx.nav_points.len());
@@ -526,8 +528,7 @@ mod tests {
 
     #[test]
     fn epub_to_nested_ncx() {
-        let epub_bytes = fs::read("test_resources/shakespeares.epub").unwrap();
-        let epub_archive = EpubArchive::new(&epub_bytes).unwrap();
+        let epub_archive = EpubArchive::new(EPUB_SHAKESPEARES).unwrap();
         let toc_ncx = epub_archive.navigation;
         assert_eq!(3, toc_ncx.depth);
         assert_eq!(
@@ -538,19 +539,48 @@ mod tests {
 
     #[test]
     fn simple_epub_to_book() {
-        let epub_bytes = fs::read("test_resources/simple.epub").unwrap();
-        let epub_archive = EpubArchive::new(&epub_bytes).unwrap();
-        let author = "蒲松龄";
-        let title = "聊斋志异白话文";
-        let chapter2start = "我姐夫的祖父，名叫宋焘，是本县的廪生";
+        let expected_author = "蒲松龄";
+        let expected_title = "聊斋志异白话文";
+        let expected_chapter_titles = vec![
+            "聊斋志异白话文",
+            "卷一 考城隍",
+            "卷一 耳中人",
+            "卷一 尸变",
+            "卷一 喷水",
+            "卷一 瞳人语",
+            "卷一 画壁",
+            "卷一 山魈",
+            "卷一 咬鬼",
+            "卷一 捉狐",
+            "卷一 荞中怪",
+            "卷一 宅妖",
+            "卷一 王六郎",
+            "卷一 偷桃",
+            "卷一 种梨",
+            "卷一 劳山道士",
+            "卷一 长清僧",
+            "卷一 蛇人",
+            "卷一 斫蟒",
+            "卷一 犬奸",
+        ];
+        let expected_chapter2_start = "卷一 考城隍 我姐夫的祖父，名叫宋焘，是本县的廪生";
+        let expected_chapter3_start = "卷一 耳中人 谭晋玄，是本县的一名秀才。";
+        let expected_chapter4_start = "卷一 尸变 阳信县某老翁";
+
+        let epub_archive = EpubArchive::new(EPUB_SIMPLE).unwrap();
         let book = epub_archive
             .to_book()
             .expect("simple.epub should be parsed to book without error");
-        assert_eq!(Some(author.to_string()), book.author);
-        assert_eq!(title, &book.title);
+        let chapter_titles = book.chapters.iter().map(|ch| &ch.title).collect::<Vec<_>>();
         let chapter2 = book.chapters.get(1).expect("Book should contain chapters");
+        let chapter3 = book.chapters.get(2).expect("Book should contain chapters");
+        let chapter4 = book.chapters.get(3).expect("Book should contain chapters");
+        assert_eq!(Some(expected_author.to_string()), book.author);
+        assert_eq!(expected_title, &book.title);
+        assert_eq!(expected_chapter_titles, chapter_titles);
         assert_eq!("卷一 考城隍", chapter2.title);
-        // assert_eq!("a", chapter2.text);
-        assert!(chapter2.text.starts_with(chapter2start));
+        assert!(chapter2.text.starts_with(expected_chapter2_start));
+        assert!(chapter3.text.starts_with(expected_chapter3_start));
+        assert!(chapter4.text.starts_with(expected_chapter4_start));
     }
 }
