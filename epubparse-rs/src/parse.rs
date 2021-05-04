@@ -45,13 +45,6 @@ pub struct NavPoint {
     pub children: Vec<NavPoint>,
 }
 
-struct FlattenedChapter {
-    pub title: String,
-    pub text: String,
-    pub level: u64,
-    pub resource_id: ItemId,
-}
-
 pub struct TocNcx {
     // maximum of 4 is allowed
     pub depth: usize,
@@ -425,30 +418,28 @@ fn parse_ncx(text: &str) -> Result<TocNcx, MalformattedEpubError> {
     Ok(TocNcx { depth, nav_points })
 }
 
-fn parse_manifest(manifest: &Element) -> Option<Manifest> {
-    Some(
-        manifest
-            .children
-            .iter()
-            .filter_map(|node| {
-                if let Some(el) = node.as_element() {
-                    if el.name == "item" {
-                        let id = el.attributes.get("id")?.to_string();
-                        return Some((
-                            id.clone(),
-                            ManifestItem {
-                                id,
-                                href: el.attributes.get("href")?.to_string(),
-                                media_type: el.attributes.get("media-type")?.to_string(),
-                                properties: el.attributes.get("properties").map(|s| s.to_string()),
-                            },
-                        ));
-                    }
+fn parse_manifest(manifest: &Element) -> Manifest {
+    manifest
+        .children
+        .iter()
+        .filter_map(|node| {
+            if let Some(el) = node.as_element() {
+                if el.name == "item" {
+                    let id = el.attributes.get("id")?.to_string();
+                    return Some((
+                        id.clone(),
+                        ManifestItem {
+                            id,
+                            href: el.attributes.get("href")?.to_string(),
+                            media_type: el.attributes.get("media-type")?.to_string(),
+                            properties: el.attributes.get("properties").map(|s| s.to_string()),
+                        },
+                    ));
                 }
-                None
-            })
-            .collect::<HashMap<ItemId, ManifestItem>>(),
-    )
+            }
+            None
+        })
+        .collect::<HashMap<ItemId, ManifestItem>>()
 }
 
 pub fn parse_spine(spine: &Element) -> Option<Spine> {
@@ -481,7 +472,7 @@ fn parse_content_opf(text: &str) -> Option<ContentOPF> {
         .flatten()
         .map(|s| s.to_string());
     let language = metadata.get_child("language")?.get_text()?.to_string();
-    let manifest = parse_manifest(manifest)?;
+    let manifest = parse_manifest(manifest);
     let spine = parse_spine(spine)?;
     Some(ContentOPF {
         title,

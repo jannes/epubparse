@@ -1,5 +1,6 @@
 use std::collections::VecDeque;
 
+// TODO: fix spacing for inline tags such as <i> <b> etc.
 pub fn html_to_text(
     full_text: &str,
     start_anchor: Option<&str>,
@@ -46,7 +47,7 @@ pub fn html_to_text(
     Ok(text.join(" "))
 }
 
-// TODO: fix spacing for inline tags such as <i> <b> etc.
+#[allow(dead_code)]
 pub fn get_all_text(xml_node: &xmltree::XMLNode) -> String {
     let mut text: Vec<String> = Vec::new();
     match xml_node {

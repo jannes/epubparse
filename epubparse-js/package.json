@@ -1,6 +1,6 @@
 {
   "name": "epubparse-js",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "WIP library for parsing epub files into book structures",
   "module": "index.js",
   "scripts": {
@@ -21,6 +21,6 @@
     "typescript": "^4.2.3"
   },
   "dependencies": {
-    "epubparse-wasm": "^0.1.0"
+    "epubparse-wasm": "0.2.0"
   }
 }

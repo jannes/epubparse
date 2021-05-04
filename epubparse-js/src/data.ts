@@ -1,12 +1,12 @@
 export interface Book {
     title: string
+    author: string | undefined
+    prefaceContent: string
     chapters: Array<Chapter>
-    nestingDepth: number
 }
 
 export interface Chapter {
     title: string
-    components: Array<ChapterComponent>
+    text: string
+    subchapters: Array<Chapter>
 }
-
-export type ChapterComponent = Chapter | string

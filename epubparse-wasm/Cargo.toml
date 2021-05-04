@@ -1,6 +1,6 @@
 [package]
 name = "epubparse-wasm"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["jannes <jannes.dev@posteo.net>"]
 edition = "2018"
 license = "MIT"
@@ -17,9 +17,7 @@ default = ["console_error_panic_hook"]
 
 [dependencies]
 epubparse = { path = "../epubparse-rs" }
-wasm-bindgen = "0.2.63"
-web-sys = { version = "0.3", features = ["console"] }
-js-sys = "0.3.49"
+wasm-bindgen = { version = "0.2", features = ["serde-serialize"] }
 
 # The `console_error_panic_hook` crate provides better debugging of panics by
 # logging them with `console.error`. This is great for development, but requires

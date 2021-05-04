@@ -1,6 +1,6 @@
 [package]
 name = "epubparse"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["jannes <jannes.dev@posteo.net>"]
 edition = "2018"
 license = "MIT"
@@ -17,3 +17,4 @@ thiserror = "1.0"
 regex = "1"
 xmltree = "0.10.2"
 zip = { version = "0.5", default-features = false, features = ["deflate"] }
+serde = { version = "1.0", features = ["derive"] }

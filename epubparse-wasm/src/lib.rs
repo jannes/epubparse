@@ -1,10 +1,9 @@
 mod utils;
 
-extern crate web_sys;
 extern crate epubparse;
 
 use epubparse::epub_to_book;
-use js_sys::Array;
+use utils::set_panic_hook;
 use wasm_bindgen::prelude::*;
 
 // When the `wee_alloc` feature is enabled, use `wee_alloc` as the global
@@ -13,46 +12,12 @@ use wasm_bindgen::prelude::*;
 #[global_allocator]
 static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 
-// A macro to provide `println!(..)`-style syntax for `console.log` logging.
-macro_rules! log {
-    ( $( $t:tt )* ) => {
-        web_sys::console::log_1(&format!( $( $t )* ).into());
-    }
-}
-
+/// returns either Book converted to JsValue
+/// or ParseError converted to JsValue
 #[wasm_bindgen]
-extern "C" {
-    #[wasm_bindgen(typescript_type = "Array<string>")]
-    type StringArray;
-}
-
-// #[wasm_bindgen]
-// pub struct BookExp {
-//     pub title: String, 
-//     pub author: String, 
-//     pub chapter_titles: StringArray,
-//     pub chapter_contents: StringArray,
-// }
-
-
-#[wasm_bindgen]
-extern "C" {
-    fn alert(s: &str);
-}
-
-#[wasm_bindgen]
-pub fn greet() {
-    alert("Hello, epubparse!");
-}
-
-#[wasm_bindgen]
-pub fn parse_epub(bytes: &[u8]) -> String {
+pub fn parse_epub(bytes: &[u8]) -> Result<JsValue, JsValue> {
+    set_panic_hook();
     let book = epub_to_book(bytes);
-    match book {
-        Ok(book) => book.title,
-        Err(e) => {
-            log!("err");
-            e.to_string()
-        }
-    }
+    book.map(|b| JsValue::from_serde(&b).unwrap())
+        .map_err(|parse_error| JsValue::from_str(&parse_error.to_string()))
 }
