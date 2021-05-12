@@ -80,8 +80,8 @@ mod tests {
     use super::*;
 
     static PRIDE_PREJUDICE_CHAPTER_HTML: &str =
-        include_str!("../test_resources/pride_prejudice_chapter.html");
-    static SIMPLE_CHAPTER_HTML: &str = include_str!("../test_resources/simple_chapter.html");
+        include_str!("../../test_resources/pride_prejudice_chapter.html");
+    static SIMPLE_CHAPTER_HTML: &str = include_str!("../../test_resources/simple_chapter.html");
 
     #[test]
     fn get_all_text_simple() {

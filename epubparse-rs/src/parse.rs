@@ -487,10 +487,10 @@ fn parse_content_opf(text: &str) -> Option<ContentOPF> {
 mod tests {
     use super::*;
 
-    static EPUB_PAID_OFF: &[u8] = include_bytes!("../test_resources/paid_off.epub");
-    static EPUB_SHAKESPEARES: &[u8] = include_bytes!("../test_resources/shakespeares.epub");
-    static EPUB_SIMPLE: &[u8] = include_bytes!("../test_resources/simple.epub");
-    static EPUB_NESTED: &[u8] = include_bytes!("../test_resources/nested.epub");
+    static EPUB_PAID_OFF: &[u8] = include_bytes!("../../test_resources/paid_off.epub");
+    static EPUB_SHAKESPEARES: &[u8] = include_bytes!("../../test_resources/shakespeares.epub");
+    static EPUB_SIMPLE: &[u8] = include_bytes!("../../test_resources/simple.epub");
+    static EPUB_NESTED: &[u8] = include_bytes!("../../test_resources/nested.epub");
 
     #[test]
     fn epub_to_contentopf() {

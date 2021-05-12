@@ -31,12 +31,12 @@ pub fn epub_to_book(bytes: &[u8]) -> Result<Book, ParseError> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::fs;
+
+    static EPUB_PAID_OFF: &[u8] = include_bytes!("../../test_resources/paid_off.epub");
 
     #[test]
     fn epub_to_book_paid_off() {
-        let bytes = fs::read("test_resources/paid_off.epub").unwrap();
-        let book = epub_to_book(&bytes).unwrap();
+        let book = epub_to_book(EPUB_PAID_OFF).unwrap();
         assert_eq!("Paid Off", &book.title);
     }
 }
