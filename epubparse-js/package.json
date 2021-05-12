@@ -1,12 +1,12 @@
 {
   "name": "epubparse-js",
   "version": "0.2.0",
-  "description": "WIP library for parsing epub files into book structures",
+  "description": "Library for parsing epub files into book structures",
   "module": "index.js",
   "scripts": {
     "build": "tsc",
     "prepublish": "npm run build",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "ava"
   },
   "author": "Jannes",
   "license": "MIT",
@@ -18,9 +18,26 @@
     "dist/"
   ],
   "devDependencies": {
-    "typescript": "^4.2.3"
+    "@types/node": "^15.0.2",
+    "ava": "^3.15.0",
+    "ts-node": "^9.1.1",
+    "typescript": "^4.2.4"
   },
   "dependencies": {
-    "epubparse-wasm": "0.2.0"
+    "epubparse-wasm": "0.2.3"
+  },
+  "type": "module",
+  "ava": {
+    "extensions": {
+      "ts": "module"
+    },
+    "nonSemVerExperiments": {
+      "configurableModuleFormat": true
+    },
+    "nodeArguments": [
+      "--loader=ts-node/esm",
+      "--experimental-specifier-resolution=node",
+      "--experimental-wasm-modules"
+    ]
   }
 }
