@@ -1,16 +1,15 @@
 //! A library to parse epub files
 //!
-//! WIP! not usable yet
-//!
 //! Design goals:
-//! - parse an epub file into a simple text-only book structure
-//!   (current focus)
+//! - parse an epub file into a simple text-only book structure 
+//!   (implemented)
 //! - parse an epub file into a low-level epub structure,
 //!   that exposes all resources in an comprehensive API
 //!   (later versions)
 //!
-//! For starters only epub versions 2.0.1 will be supported,  
-//! but I'm planning to also support 3.0.1/3.2
+//! Atm only epub version 2 is supported, but I'm planning to also support 3.0.1/3.2.
+//! Most of the time newer versions include all the files needed to be 
+//! backwards compatible with version 2 though, so the current implementation often works for version 3 too.
 
 use errors::ParseError;
 use parse::EpubArchive;
@@ -21,7 +20,7 @@ mod parse;
 pub mod types;
 mod util;
 
-/// Parse an epub file to a text-only book structure (UNIMPLEMENTED!)
+/// Parse an epub file to a text-only book structure
 ///
 /// This may fail due to various reasons, that are captured by the returned Result's Error type
 pub fn epub_to_book(bytes: &[u8]) -> Result<Book, ParseError> {
