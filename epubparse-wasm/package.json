@@ -1,0 +1,28 @@
+{
+  "name": "epubparse-wasm",
+  "collaborators": [
+    "jannes <jannes.dev@posteo.net>"
+  ],
+  "description": "Parse epub and convert to text-only Book structure",
+  "version": "0.2.3",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jannes/epubparse/"
+  },
+  "files": [
+    "epubparse_wasm_bg.wasm",
+    "epubparse_wasm.js",
+    "epubparse_wasm_bg.js",
+    "epubparse_wasm.d.ts"
+  ],
+  "main": "epubparse_wasm.js",
+  "type": "module",
+  "module": "epubparse_wasm.js",
+  "types": "epubparse_wasm.d.ts",
+  "sideEffects": false,
+  "keywords": [
+    "epub",
+    "ebook"
+  ]
+}
