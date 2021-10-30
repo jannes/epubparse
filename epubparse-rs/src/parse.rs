@@ -6,6 +6,7 @@ use regex::Regex;
 use xmltree::Element;
 use zip::{result::ZipError, ZipArchive};
 
+use crate::util::get_parser_config;
 use crate::{
     errors::{MalformattedEpubError, ParseError},
     types::{Book, Chapter},
@@ -383,7 +384,7 @@ fn parse_nav_points(nav_points: &Element, level: usize) -> Option<Vec<NavPoint>>
 }
 
 fn parse_ncx(text: &str) -> Result<TocNcx, MalformattedEpubError> {
-    let ncx = xmltree::Element::parse(text.as_bytes())
+    let ncx = xmltree::Element::parse_with_config(text.as_bytes(), get_parser_config())
         .map_err(|_e| MalformattedEpubError::MalformattedTocNcx("Invalid XML".to_string()))?;
     let depths: Vec<usize> = ncx
         .get_child("head")
@@ -461,7 +462,7 @@ pub fn parse_spine(spine: &Element) -> Option<Spine> {
 }
 
 fn parse_content_opf(text: &str) -> Option<ContentOPF> {
-    let package = xmltree::Element::parse(text.as_bytes()).ok()?;
+    let package = xmltree::Element::parse_with_config(text.as_bytes(), get_parser_config()).ok()?;
     let metadata = package.get_child("metadata")?;
     let manifest = package.get_child("manifest")?;
     let spine = package.get_child("spine")?;
@@ -483,6 +484,7 @@ fn parse_content_opf(text: &str) -> Option<ContentOPF> {
     })
 }
 
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -491,6 +493,7 @@ mod tests {
     static EPUB_SHAKESPEARES: &[u8] = include_bytes!("../../test_resources/shakespeares.epub");
     static EPUB_SIMPLE: &[u8] = include_bytes!("../../test_resources/simple.epub");
     static EPUB_NESTED: &[u8] = include_bytes!("../../test_resources/nested.epub");
+    static EPUB_KANJIAN: &[u8] = include_bytes!("../../test_resources/kanjian.epub");
 
     #[test]
     fn epub_to_contentopf() {
@@ -653,5 +656,17 @@ mod tests {
             .to_book()
             .expect("nested.epub should be parsed to book without error");
         assert_eq!(expected_book, book);
+    }
+
+    #[test]
+    fn epub_to_book_1() {
+        let expected_author = "柴静";
+        let expected_title = "看见";
+        let epub_archive = EpubArchive::new(EPUB_KANJIAN).unwrap();
+        let book = epub_archive
+            .to_book()
+            .expect("kanjian.epub should be parsed to book without error");
+        assert_eq!(Some(expected_author.to_string()), book.author);
+        assert_eq!(expected_title, &book.title);
     }
 }

@@ -2,6 +2,8 @@
 
 WORK IN PROGRESS
 
+Requires Rust 1.56 to compile
+
 This library aims to convert Epub files into text-only Book structures
 that can be used to do analysis of the contained text.
 

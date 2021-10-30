@@ -1,5 +1,8 @@
 use std::collections::VecDeque;
 
+use crate::html_entities::get_named_entities;
+use xmltree::ParserConfig;
+
 // TODO: fix spacing for inline tags such as <i> <b> etc.
 pub fn html_to_text(
     full_text: &str,
@@ -7,7 +10,8 @@ pub fn html_to_text(
     stop_anchor: Option<&str>,
 ) -> Result<String, xmltree::ParseError> {
     let mut text: Vec<String> = Vec::new();
-    let root = xmltree::XMLNode::Element(xmltree::Element::parse(full_text.as_bytes())?);
+    let root =
+        xmltree::XMLNode::Element(xmltree::Element::parse_with_config(full_text.as_bytes(), get_parser_config())?);
     let mut to_visit: VecDeque<&xmltree::XMLNode> = VecDeque::new();
     to_visit.push_back(&root);
     // do DFS for start node, visiting all nodes before on the way
@@ -73,6 +77,12 @@ pub fn get_named_anchor(element: &xmltree::Element) -> Option<&str> {
         result = Some(name_attr.as_str());
     }
     result
+}
+
+pub fn get_parser_config() -> ParserConfig {
+    let mut config = ParserConfig::new();
+    config.extra_entities = get_named_entities();
+    config
 }
 
 #[cfg(test)]

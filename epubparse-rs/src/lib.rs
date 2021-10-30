@@ -16,6 +16,7 @@ use parse::EpubArchive;
 use types::Book;
 
 pub mod errors;
+mod html_entities;
 mod parse;
 pub mod types;
 mod util;
