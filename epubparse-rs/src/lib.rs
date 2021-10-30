@@ -1,14 +1,14 @@
 //! A library to parse epub files
 //!
 //! Design goals:
-//! - parse an epub file into a simple text-only book structure 
+//! - parse an epub file into a simple text-only book structure
 //!   (implemented)
 //! - parse an epub file into a low-level epub structure,
 //!   that exposes all resources in an comprehensive API
 //!   (later versions)
 //!
 //! Atm only epub version 2 is supported, but I'm planning to also support 3.0.1/3.2.
-//! Most of the time newer versions include all the files needed to be 
+//! Most of the time newer versions include all the files needed to be
 //! backwards compatible with version 2 though, so the current implementation often works for version 3 too.
 
 use errors::ParseError;

@@ -484,7 +484,6 @@ fn parse_content_opf(text: &str) -> Option<ContentOPF> {
     })
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;

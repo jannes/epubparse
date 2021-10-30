@@ -10,8 +10,10 @@ pub fn html_to_text(
     stop_anchor: Option<&str>,
 ) -> Result<String, xmltree::ParseError> {
     let mut text: Vec<String> = Vec::new();
-    let root =
-        xmltree::XMLNode::Element(xmltree::Element::parse_with_config(full_text.as_bytes(), get_parser_config())?);
+    let root = xmltree::XMLNode::Element(xmltree::Element::parse_with_config(
+        full_text.as_bytes(),
+        get_parser_config(),
+    )?);
     let mut to_visit: VecDeque<&xmltree::XMLNode> = VecDeque::new();
     to_visit.push_back(&root);
     // do DFS for start node, visiting all nodes before on the way
