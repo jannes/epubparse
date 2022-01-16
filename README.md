@@ -26,3 +26,28 @@ It is published both as a Rust crate to crates.io and as a NPM package (ESM modu
 - epubparse-js: JS library with ergonomic API including
   Typescript definitions
   (published to npm, for use in Browser and Node.js)
+
+## Steps to release
+
+### Prepare
+- bump version in `epubparse-rs/Cargo.toml`
+- bump versions in `epubparse-wasm/Cargo.toml` and `epubparse-wasm/package.json`
+- go to `epubparse-wasm` folder and run `build_package.sh`
+- bump version and `epubparse-wasm` dependency verion in `epubparse-js/package.json`
+- commit
+
+### Release
+#### Crates.io
+- `cd` into epubparse-rs
+- run `cargo publish --dry-run` to verify 
+- run `cargo publish`
+
+#### NPM
+##### Wasm
+- `cd` into epubparse-wasm
+- run `wasm-pack login`
+- run `wasm-pack publish`
+
+##### JS
+- run `npm run build`
+- run `npm publish`

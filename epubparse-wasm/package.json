@@ -4,7 +4,7 @@
     "jannes <jannes.dev@posteo.net>"
   ],
   "description": "Parse epub and convert to text-only Book structure",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "license": "MIT",
   "repository": {
     "type": "git",

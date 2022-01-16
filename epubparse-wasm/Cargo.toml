@@ -1,6 +1,6 @@
 [package]
 name = "epubparse-wasm"
-version = "0.2.3"
+version = "0.2.4"
 authors = ["jannes <jannes.dev@posteo.net>"]
 edition = "2018"
 license = "MIT"
