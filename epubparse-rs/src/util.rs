@@ -94,6 +94,7 @@ mod tests {
     static PRIDE_PREJUDICE_CHAPTER_HTML: &str =
         include_str!("../../test_resources/pride_prejudice_chapter.html");
     static SIMPLE_CHAPTER_HTML: &str = include_str!("../../test_resources/simple_chapter.html");
+    static ENTITIES_CHAPTER_HTML: &str = include_str!("../../test_resources/chapter_entities.html");
 
     #[test]
     fn get_all_text_simple() {
@@ -157,5 +158,11 @@ mod tests {
         let all_text1 = get_all_text(&xmltree::XMLNode::Element(root));
         let all_text2 = html_to_text(PRIDE_PREJUDICE_CHAPTER_HTML, None, None).unwrap();
         assert_eq!(all_text1, all_text2);
+    }
+
+    #[test]
+    fn html_to_text_with_entitites() {
+        // just check if no error is thrown due to unknown entity
+        let _all_text = html_to_text(ENTITIES_CHAPTER_HTML, None, None);
     }
 }
