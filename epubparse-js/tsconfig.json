@@ -8,7 +8,7 @@
         "strict": true,
         "esModuleInterop": true,
         "forceConsistentCasingInFileNames": true,
-        "outDir": "dist",
+        "outDir": "dist"
     },
     "include": [
         "src/**/*.ts"

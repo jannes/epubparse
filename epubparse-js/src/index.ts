@@ -11,7 +11,7 @@ export function epubToBook(bytes: Uint8Array): Book | string {
         return convertToBook(book)
     }
     catch (e) {
-        return e
+        return e as string
     }
 }
 
