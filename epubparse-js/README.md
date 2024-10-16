@@ -1,24 +1,14 @@
-# Epubparse-js
+# Epubparse
 
-⚠️  Work in progress  
+[![NPM](https://img.shields.io/npm/v/epubparse-js)](https://www.npmjs.com/package/epubparse-js)
 
-This library aims to convert Epub files into text-only Book structures
-that can be used to do analysis of the contained text.
-It is published both as a Rust crate to [crates.io](https://crates.io/crates/epubparse) 
-and as a NPM package (ESM module) to [npm](https://www.npmjs.com/package/epubparse-js).
-See the [project repo](https://github.com/jannes/epubparse) for all components.
-This is the JS wrapper library to expose a JS API for the WASM core.
+⚠️ This library is developed for my own very narrow use cases and probably insufficient for your needs.
+It is published both as a Rust crate to crates.io and as a NPM package (ESM module) to npm.
 
-## Design goals
-- ✅ perform a reasonable conversion into a book with chapters
-- ✅ support Epub version 2 table of contents (.ncx)
-- ❌ support Epub version 3 table of contents (.xhtml) (not yet implemented, but  
-  many version 3 epubs also include version 2 table of contents, these should also work)
+The sole purpose of this project is essentially to convert Epub files to simple text-only 
+`Book` structures, where a `Book` is a tree of `Chapter`s that contain text and/or subchapters. 
+I am just using this to do different kinds of text analysis on a per chapter basis.
 
-## Development
-
-Tests should be run with Node 16,
-two experimental flags are used to deal with ESM modules and WASM:
-
-- --experimental-specifier-resolution=node
-- --experimental-wasm-modules
+At the moment only epub files with epub2 compatible toc (table of content) files (.ncx) are supported.
+Many epub3 files do contain epub2 toc files for compatibility reasons.
+I do intend to implement support for epub3 toc files (.xhtml) in the future.
